@@ -1,7 +1,330 @@
-@import "tailwindcss";
+:root {
+  --ink: #12303f;
+  --ink-soft: #bcd0da;
+  --paper: #f4f6f5;
+  --surface: #ffffff;
+  --action: #1d5f8a;
+  --action-dark: #174c70;
+  --text: #17262d;
+  --muted: #53625f;
+  --line: #c9d2d0;
+  --error: #b3261e;
+  --radius: 6px;
+}
 
-@layer base {
-  body {
-    @apply bg-slate-50 text-slate-900 antialiased font-sans;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  font-family: 'Figtree', system-ui, sans-serif;
+  color: var(--text);
+  background: var(--paper);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Layout ---------- */
+.login {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+}
+
+.login__brand {
+  background: var(--ink);
+  color: #fff;
+  padding: 40px 56px 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 96px;
+}
+
+.wordmark {
+  margin: 0;
+  font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+.login__brand h1 {
+  margin: 0 0 20px;
+  font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: clamp(2rem, 3.4vw, 3.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  max-width: 14ch;
+}
+
+.login__lede {
+  margin: 0;
+  max-width: 38ch;
+  color: var(--ink-soft);
+  font-size: 1.0625rem;
+}
+
+.login__panel {
+  padding: 64px 72px;
+  display: flex;
+  align-items: center;
+}
+
+/* ---------- Form ---------- */
+.form {
+  width: 100%;
+  max-width: 440px;
+}
+
+.form h2 {
+  margin: 0 0 28px;
+  font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1.75rem;
+  letter-spacing: -0.01em;
+}
+
+.roles {
+  border: 0;
+  padding: 0;
+  margin: 0 0 28px;
+  display: grid;
+  gap: 8px;
+}
+
+.roles legend {
+  padding: 0;
+  margin-bottom: 10px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.role {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.role:hover {
+  border-color: var(--action);
+}
+
+.role input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  cursor: pointer;
+}
+
+.role__dot {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.role--on {
+  border-color: var(--action);
+  background: #eaf2f7;
+}
+
+.role--on .role__dot {
+  border-color: var(--action);
+}
+
+.role--on .role__dot::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--action);
+}
+
+.role:has(input:focus-visible) {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.role__text {
+  display: grid;
+  gap: 2px;
+}
+
+.role__label {
+  font-weight: 600;
+}
+
+.role__note {
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.field {
+  margin-bottom: 20px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.field__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.field input {
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.field input:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 1px;
+  border-color: var(--action);
+}
+
+.field__password {
+  position: relative;
+}
+
+.field__password input {
+  padding-right: 112px;
+}
+
+.field__password button {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--action);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link:hover {
+  color: var(--action-dark);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.error {
+  min-height: 1.5em;
+  margin: 0 0 16px;
+  color: var(--error);
+  font-size: 0.9375rem;
+}
+
+/* ---------- Buttons ---------- */
+.actions {
+  display: grid;
+  gap: 10px;
+}
+
+.btn {
+  display: block;
+  width: 100%;
+  padding: 13px 18px;
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.btn--primary {
+  background: var(--action);
+  color: #fff;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--action-dark);
+}
+
+.btn--primary:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.btn--secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.btn--secondary:hover {
+  border-color: var(--action);
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 860px) {
+  .login {
+    grid-template-columns: 1fr;
+  }
+
+  .login__brand {
+    padding: 28px 24px 36px;
+    gap: 40px;
+  }
+
+  .login__brand h1 {
+    max-width: 20ch;
+  }
+
+  .login__panel {
+    padding: 32px 24px 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
   }
 }
