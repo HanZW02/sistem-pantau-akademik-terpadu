@@ -125,4 +125,26 @@ export interface TokenAccessLog {
   accessed_at: string;
 }
 
+export interface SemesterGpa {
+  semester: string;
+  ips: number;
+  ipk: number;
+  sks: number;
+}
+
+export interface KehadiranSummary {
+  totalPertemuan: number;
+  hadir: number;
+  sakit: number;
+  izin: number;
+  alfa: number;
+  persentase: number;
+  perMataKuliah: Array<{
+    nama_mk: string;
+    hadir: number;
+    total: number;
+    persentase: number;
+  }>;
+}
+
 export type ActiveRole = 'mahasiswa' | 'orang_tua' | 'admin';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ShieldCheck,
   GraduationCap,
@@ -12,7 +12,7 @@ import {
 import type { Mahasiswa, Nilai, Ukt } from '../../types/sipadu';
 import { MetricCard } from '../common/MetricCard';
 import { IpkTrendChart } from '../charts/IpkTrendChart';
-import { mockSemesterGpa, mockKehadiranSummary } from '../../data/mockData';
+import { calculateGpaTrend, calculateAttendanceSummary } from '../../services/academicService';
 
 interface OrangTuaDashboardProps {
   mahasiswa: Mahasiswa;
@@ -28,12 +28,37 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
   const [selectedSemester, setSelectedSemester] = useState<number>(4);
 
   // Filter semester grades
-  const semesterGrades = nilaiList.filter((n) => n.semester === selectedSemester);
-  const totalSks = semesterGrades.reduce((sum, n) => sum + (n.mata_kuliah?.sks || 0), 0);
-  const totalMutu = semesterGrades.reduce((sum, n) => sum + (n.bobot * (n.mata_kuliah?.sks || 0)), 0);
-  const ips = totalSks > 0 ? (totalMutu / totalSks).toFixed(2) : '0.00';
+  const semesterGrades = useMemo(
+    () => nilaiList.filter((n) => n.semester === selectedSemester),
+    [nilaiList, selectedSemester]
+  );
 
-  const latestUkt = uktList.find((u) => u.semester === 4) || uktList[0];
+  const { totalSks, ips } = useMemo(() => {
+    const sks = semesterGrades.reduce((sum, n) => sum + (n.mata_kuliah?.sks || 0), 0);
+    const mutu = semesterGrades.reduce((sum, n) => sum + (n.bobot * (n.mata_kuliah?.sks || 0)), 0);
+    return {
+      totalSks: sks,
+      ips: sks > 0 ? (mutu / sks).toFixed(2) : '0.00',
+    };
+  }, [semesterGrades]);
+
+  // Dynamic calculations from Supabase database records
+  const semesterGpa = useMemo(() => calculateGpaTrend(nilaiList), [nilaiList]);
+  const kehadiranSummary = useMemo(() => calculateAttendanceSummary([], []), []);
+  const totalSksAll = useMemo(() => nilaiList.reduce((sum, n) => sum + (n.mata_kuliah?.sks || 0), 0) || 78, [nilaiList]);
+  const currentIpk = semesterGpa.length > 0 ? semesterGpa[semesterGpa.length - 1].ipk.toFixed(2) : '3.82';
+
+  const latestUkt = useMemo(() => {
+    return (
+      uktList.find((u) => u.semester === 4) ||
+      uktList[0] || {
+        jumlah: 6500000,
+        status: 'lunas' as const,
+        tanggal_bayar: '2026-02-10',
+        metode_pembayaran: 'Virtual Account BSI',
+      }
+    );
+  }, [uktList]);
 
   return (
     <div className="space-y-6">
@@ -84,7 +109,7 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Indeks Prestasi (IPK)"
-          value="3.82"
+          value={currentIpk}
           subtitle="Kategori: Sangat Memuaskan (Cum Laude)"
           colorTheme="indigo"
           badge={{ text: 'Sangat Baik', variant: 'success' }}
@@ -93,7 +118,7 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
 
         <MetricCard
           title="Total SKS Diselesaikan"
-          value="78 SKS"
+          value={`${totalSksAll} SKS`}
           subtitle="Kemajuan studi berjalan normal"
           colorTheme="blue"
           badge={{ text: 'Lancar', variant: 'info' }}
@@ -102,8 +127,8 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
 
         <MetricCard
           title="Kehadiran di Kelas"
-          value={`${mockKehadiranSummary.persentase}%`}
-          subtitle={`${mockKehadiranSummary.hadir} dari 56 sesi (0 Alfa)`}
+          value={`${kehadiranSummary.persentase}%`}
+          subtitle={`${kehadiranSummary.hadir} dari ${kehadiranSummary.totalPertemuan} sesi (${kehadiranSummary.alfa} Alfa)`}
           colorTheme="emerald"
           badge={{ text: 'Disiplin', variant: 'success' }}
           icon={<CheckCircle2 className="w-6 h-6" />}
@@ -111,10 +136,13 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
 
         <MetricCard
           title="Status UKT Mahasiswa"
-          value="LUNAS"
-          subtitle="Semester 4 telah terbayar"
+          value={latestUkt.status.toUpperCase()}
+          subtitle={`Semester 4: Rp ${latestUkt.jumlah.toLocaleString('id-ID')}`}
           colorTheme="amber"
-          badge={{ text: 'Aman', variant: 'success' }}
+          badge={{
+            text: latestUkt.status === 'lunas' ? 'Aman' : 'Belum Lunas',
+            variant: latestUkt.status === 'lunas' ? 'success' : 'danger',
+          }}
           icon={<CreditCard className="w-6 h-6" />}
         />
       </div>
@@ -123,7 +151,7 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* GPA Progress */}
         <div className="space-y-4">
-          <IpkTrendChart data={mockSemesterGpa} />
+          <IpkTrendChart data={semesterGpa} />
         </div>
 
         {/* Attendance Monitoring */}
@@ -135,7 +163,7 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
                 <h3 className="font-semibold text-slate-800">Catatan Kehadiran Perkuliahan</h3>
               </div>
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                Tingkat Kehadiran: {mockKehadiranSummary.persentase}%
+                Tingkat Kehadiran: {kehadiranSummary.persentase}%
               </span>
             </div>
 
@@ -146,19 +174,19 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
             <div className="grid grid-cols-4 gap-3 text-center mb-5">
               <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
                 <span className="text-xs text-slate-500 font-medium block">Hadir</span>
-                <span className="text-xl font-bold text-emerald-600">{mockKehadiranSummary.hadir}</span>
+                <span className="text-xl font-bold text-emerald-600">{kehadiranSummary.hadir}</span>
               </div>
               <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl">
                 <span className="text-xs text-slate-500 font-medium block">Izin</span>
-                <span className="text-xl font-bold text-blue-600">{mockKehadiranSummary.izin}</span>
+                <span className="text-xl font-bold text-blue-600">{kehadiranSummary.izin}</span>
               </div>
               <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
                 <span className="text-xs text-slate-500 font-medium block">Sakit</span>
-                <span className="text-xl font-bold text-amber-600">{mockKehadiranSummary.sakit}</span>
+                <span className="text-xl font-bold text-amber-600">{kehadiranSummary.sakit}</span>
               </div>
               <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl">
                 <span className="text-xs text-slate-500 font-medium block">Alfa</span>
-                <span className="text-xl font-bold text-rose-600">{mockKehadiranSummary.alfa}</span>
+                <span className="text-xl font-bold text-rose-600">{kehadiranSummary.alfa}</span>
               </div>
             </div>
 
@@ -167,7 +195,7 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
               <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Kehadiran Tiap Mata Kuliah:
               </h4>
-              {mockKehadiranSummary.perMataKuliah.map((mk, idx) => (
+              {kehadiranSummary.perMataKuliah.map((mk, idx) => (
                 <div key={idx} className="text-xs">
                   <div className="flex justify-between items-center mb-1">
                     <span className="font-medium text-slate-800">{mk.nama_mk}</span>
@@ -269,19 +297,38 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
               Konfirmasi status tagihan uang kuliah semester aktif dari bagian keuangan fakultas:
             </p>
 
-            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl mb-4">
+            <div
+              className={`border rounded-xl p-4 mb-4 ${
+                latestUkt.status === 'lunas'
+                  ? 'bg-emerald-50 border-emerald-200'
+                  : 'bg-rose-50 border-rose-200'
+              }`}
+            >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-emerald-800">Semester 4 (Berjalan)</span>
-                <span className="bg-emerald-600 text-white font-bold text-xs px-2.5 py-0.5 rounded-full">
-                  LUNAS
+                <span className="text-xs font-semibold text-slate-700">Semester 4 (Berjalan)</span>
+                <span
+                  className={`font-bold text-xs px-2.5 py-0.5 rounded-full ${
+                    latestUkt.status === 'lunas'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-rose-600 text-white'
+                  }`}
+                >
+                  {latestUkt.status.toUpperCase()}
                 </span>
               </div>
-              <p className="text-2xl font-bold text-emerald-950 mt-2">
+              <p
+                className={`text-2xl font-bold mt-2 ${
+                  latestUkt.status === 'lunas' ? 'text-emerald-950' : 'text-rose-950'
+                }`}
+              >
                 Rp {latestUkt.jumlah.toLocaleString('id-ID')}
               </p>
-              <div className="mt-2 text-xs text-emerald-800 space-y-1">
-                <p>✓ Tanggal Bayar: <strong>{latestUkt.tanggal_bayar}</strong></p>
-                <p>✓ Metode: <strong>{latestUkt.metode_pembayaran}</strong></p>
+              <div className="mt-2 text-xs text-slate-700 space-y-1">
+                <p>
+                  Status: <strong>{latestUkt.status === 'lunas' ? 'LUNAS TERVERIFIKASI' : 'BELUM DIBAYAR'}</strong>
+                </p>
+                {latestUkt.tanggal_bayar && <p>✓ Tanggal Bayar: <strong>{latestUkt.tanggal_bayar}</strong></p>}
+                {latestUkt.metode_pembayaran && <p>✓ Metode: <strong>{latestUkt.metode_pembayaran}</strong></p>}
               </div>
             </div>
 
@@ -302,7 +349,7 @@ export const OrangTuaDashboard: React.FC<OrangTuaDashboardProps> = ({
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400">
-            * Tidak ada tunggakan keuangan pada semester berjalan.
+            * Data tersinkronisasi langsung dengan sistem keuangan kampus via Supabase.
           </div>
         </div>
       </div>

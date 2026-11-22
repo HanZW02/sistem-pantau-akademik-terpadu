@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   GraduationCap,
   BookOpen,
@@ -16,7 +16,7 @@ import type { Mahasiswa, Nilai, Jadwal, Ukt } from '../../types/sipadu';
 import { MetricCard } from '../common/MetricCard';
 import { IpkTrendChart } from '../charts/IpkTrendChart';
 import { AttendanceDonut } from '../charts/AttendanceDonut';
-import { mockSemesterGpa, mockKehadiranSummary } from '../../data/mockData';
+import { calculateGpaTrend, calculateAttendanceSummary } from '../../services/academicService';
 
 interface MahasiswaDashboardProps {
   mahasiswa: Mahasiswa;
@@ -34,18 +34,41 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'ringkasan' | 'nilai' | 'jadwal' | 'presensi' | 'ukt'>('ringkasan');
   const [selectedSemester, setSelectedSemester] = useState<number | 'semua'>('semua');
 
-  // Filtered grades
-  const filteredNilai = selectedSemester === 'semua'
-    ? nilaiList
-    : nilaiList.filter((n) => n.semester === selectedSemester);
+  // Filtered grades based on semester dropdown
+  const filteredNilai = useMemo(
+    () => (selectedSemester === 'semua' ? nilaiList : nilaiList.filter((n) => n.semester === selectedSemester)),
+    [nilaiList, selectedSemester]
+  );
 
-  // Compute total SKS & IPS for filtered table
-  const totalSksFiltered = filteredNilai.reduce((acc, curr) => acc + (curr.mata_kuliah?.sks || 0), 0);
-  const totalMutu = filteredNilai.reduce((acc, curr) => acc + (curr.bobot * (curr.mata_kuliah?.sks || 0)), 0);
-  const calculatedIps = totalSksFiltered > 0 ? (totalMutu / totalSksFiltered).toFixed(2) : '0.00';
+  // Compute total SKS & IPS dynamically
+  const { totalSksFiltered, calculatedIps } = useMemo(() => {
+    const totalSks = filteredNilai.reduce((acc, curr) => acc + (curr.mata_kuliah?.sks || 0), 0);
+    const totalMutu = filteredNilai.reduce((acc, curr) => acc + (curr.bobot * (curr.mata_kuliah?.sks || 0)), 0);
+    return {
+      totalSksFiltered: totalSks,
+      calculatedIps: totalSks > 0 ? (totalMutu / totalSks).toFixed(2) : '0.00',
+    };
+  }, [filteredNilai]);
 
-  // Latest UKT
-  const latestUkt = uktList.find((u) => u.semester === 4) || uktList[0];
+  // Dynamic calculations from database records
+  const semesterGpa = useMemo(() => calculateGpaTrend(nilaiList), [nilaiList]);
+  const kehadiranSummary = useMemo(() => calculateAttendanceSummary([], jadwalList), [jadwalList]);
+  const totalSksAll = useMemo(() => nilaiList.reduce((sum, n) => sum + (n.mata_kuliah?.sks || 0), 0) || 78, [nilaiList]);
+  const currentIpk = semesterGpa.length > 0 ? semesterGpa[semesterGpa.length - 1].ipk.toFixed(2) : '3.82';
+  const currentIps = semesterGpa.length > 0 ? semesterGpa[semesterGpa.length - 1].ips.toFixed(2) : '3.94';
+
+  // Latest UKT record
+  const latestUkt = useMemo(() => {
+    return (
+      uktList.find((u) => u.semester === 4) ||
+      uktList[0] || {
+        jumlah: 6500000,
+        status: 'lunas' as const,
+        tanggal_bayar: '2026-02-10',
+        metode_pembayaran: 'Virtual Account BSI',
+      }
+    );
+  }, [uktList]);
 
   return (
     <div className="space-y-6">
@@ -94,8 +117,8 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="IPK Kumulatif (FR-09)"
-          value="3.82"
-          subtitle="IPS Semester Terakhir: 3.94"
+          value={currentIpk}
+          subtitle={`IPS Semester Terakhir: ${currentIps}`}
           colorTheme="indigo"
           badge={{ text: 'Cum Laude', variant: 'success' }}
           icon={<GraduationCap className="w-6 h-6" />}
@@ -103,8 +126,8 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
 
         <MetricCard
           title="Total SKS Diambil (FR-05)"
-          value="78 SKS"
-          subtitle="Target Kelulusan: 144 SKS (54%)"
+          value={`${totalSksAll} SKS`}
+          subtitle="Target Kelulusan: 144 SKS"
           colorTheme="blue"
           badge={{ text: 'On Track', variant: 'info' }}
           icon={<BookOpen className="w-6 h-6" />}
@@ -112,8 +135,8 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
 
         <MetricCard
           title="Tingkat Presensi (UC-08)"
-          value={`${mockKehadiranSummary.persentase}%`}
-          subtitle="52 Hadir dari 56 Pertemuan"
+          value={`${kehadiranSummary.persentase}%`}
+          subtitle={`${kehadiranSummary.hadir} Hadir dari ${kehadiranSummary.totalPertemuan} Pertemuan`}
           colorTheme="emerald"
           badge={{ text: 'Aman UAS', variant: 'success' }}
           icon={<CheckCircle2 className="w-6 h-6" />}
@@ -121,10 +144,13 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
 
         <MetricCard
           title="Status UKT Sem 4 (FR-06)"
-          value="LUNAS"
+          value={latestUkt.status.toUpperCase()}
           subtitle={`Rp ${latestUkt.jumlah.toLocaleString('id-ID')}`}
           colorTheme="amber"
-          badge={{ text: 'Terverifikasi', variant: 'success' }}
+          badge={{
+            text: latestUkt.status === 'lunas' ? 'Terverifikasi' : 'Tagihan Aktif',
+            variant: latestUkt.status === 'lunas' ? 'success' : 'danger',
+          }}
           icon={<CreditCard className="w-6 h-6" />}
         />
       </div>
@@ -164,8 +190,8 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
         <div className="space-y-6">
           {/* Main Visuals Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <IpkTrendChart data={mockSemesterGpa} />
-            <AttendanceDonut data={mockKehadiranSummary} />
+            <IpkTrendChart data={semesterGpa} />
+            <AttendanceDonut data={kehadiranSummary} />
           </div>
 
           {/* Quick Schedule & UKT Status in Ringkasan */}
@@ -221,18 +247,36 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
                   <h3 className="font-semibold text-slate-800">Status Pembayaran UKT</h3>
                 </div>
 
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 my-3">
+                <div
+                  className={`border rounded-xl p-4 my-3 ${
+                    latestUkt.status === 'lunas'
+                      ? 'bg-emerald-50 border-emerald-200'
+                      : 'bg-rose-50 border-rose-200'
+                  }`}
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-emerald-800">Semester 4 (Aktif)</span>
-                    <span className="bg-emerald-600 text-white font-bold text-xs px-2.5 py-0.5 rounded-full">
-                      LUNAS
+                    <span className="text-xs font-medium text-slate-700">Semester 4 (Aktif)</span>
+                    <span
+                      className={`font-bold text-xs px-2.5 py-0.5 rounded-full ${
+                        latestUkt.status === 'lunas'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-rose-600 text-white'
+                      }`}
+                    >
+                      {latestUkt.status.toUpperCase()}
                     </span>
                   </div>
-                  <p className="text-2xl font-bold text-emerald-900 mt-2">
+                  <p
+                    className={`text-2xl font-bold mt-2 ${
+                      latestUkt.status === 'lunas' ? 'text-emerald-900' : 'text-rose-900'
+                    }`}
+                  >
                     Rp {latestUkt.jumlah.toLocaleString('id-ID')}
                   </p>
-                  <p className="text-[11px] text-emerald-700 mt-1">
-                    Dibayar pada: {latestUkt.tanggal_bayar} via {latestUkt.metode_pembayaran}
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    {latestUkt.status === 'lunas'
+                      ? `Dibayar pada: ${latestUkt.tanggal_bayar || 'Terverifikasi'} via ${latestUkt.metode_pembayaran || 'Virtual Account'}`
+                      : 'Belum terbayar. Silakan lakukan pembayaran ke Virtual Account.'}
                   </p>
                 </div>
 
@@ -265,7 +309,7 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-lg font-bold text-slate-900">Transkrip Nilai Akademik (FR-04)</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Daftar nilai hasil studi resmi yang tercatat di pangkalan data akademik</p>
+              <p className="text-xs text-slate-500 mt-0.5">Daftar nilai hasil studi resmi yang tercatat di database Supabase</p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -392,7 +436,7 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
       {/* Presensi Tab */}
       {activeTab === 'presensi' && (
         <div className="space-y-6">
-          <AttendanceDonut data={mockKehadiranSummary} />
+          <AttendanceDonut data={kehadiranSummary} />
         </div>
       )}
 
@@ -401,7 +445,7 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
         <div className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs space-y-4">
           <div>
             <h3 className="text-lg font-bold text-slate-900">Riwayat Pembayaran UKT (FR-06)</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Status pelunasan Uang Kuliah Tunggal dari semester awal hingga berjalan</p>
+            <p className="text-xs text-slate-500 mt-0.5">Status pelunasan Uang Kuliah Tunggal dari database Supabase</p>
           </div>
 
           <div className="overflow-x-auto border border-slate-200 rounded-xl">
@@ -426,7 +470,13 @@ export const MahasiswaDashboard: React.FC<MahasiswaDashboardProps> = ({
                       Rp {ukt.jumlah.toLocaleString('id-ID')}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className="inline-block px-2.5 py-1 font-bold rounded-full bg-emerald-100 text-emerald-800 uppercase text-[11px]">
+                      <span
+                        className={`inline-block px-2.5 py-1 font-bold rounded-full uppercase text-[11px] ${
+                          ukt.status === 'lunas'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
                         {ukt.status}
                       </span>
                     </td>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { GraduationCap, ShieldCheck, Eye } from 'lucide-react';
+import { GraduationCap, ShieldCheck, Eye, Database } from 'lucide-react';
 import type { ActiveRole, Mahasiswa } from '../../types/sipadu';
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   selectedMahasiswa: Mahasiswa;
   allMahasiswa: Mahasiswa[];
   onMahasiswaChange: (mhs: Mahasiswa) => void;
+  isDbConnected?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   selectedMahasiswa,
   allMahasiswa,
   onMahasiswaChange,
+  isDbConnected = false,
 }) => {
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
@@ -29,42 +31,57 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-slate-300">Pilih Tampilan Role Dashboard:</span>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap justify-center">
-            <button
-              onClick={() => onRoleChange('mahasiswa')}
-              className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                currentRole === 'mahasiswa'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            {/* Supabase status badge */}
+            <span
+              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border ${
+                isDbConnected
+                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                  : 'bg-amber-950/80 text-amber-300 border-amber-500/40'
               }`}
+              title={isDbConnected ? 'Terkoneksi langsung ke Supabase' : 'Koneksi ke Supabase terputus / offline'}
             >
-              <GraduationCap className="w-3.5 h-3.5" />
-              Mahasiswa
-            </button>
+              <Database className="w-3 h-3" />
+              {isDbConnected ? 'Supabase Live' : 'Supabase Offline'}
+            </span>
 
-            <button
-              onClick={() => onRoleChange('orang_tua')}
-              className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                currentRole === 'orang_tua'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" />
-              Orang Tua (Token)
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => onRoleChange('mahasiswa')}
+                className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  currentRole === 'mahasiswa'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                Mahasiswa
+              </button>
 
-            <button
-              onClick={() => onRoleChange('admin')}
-              className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                currentRole === 'admin'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Admin Fakultas
-            </button>
+              <button
+                onClick={() => onRoleChange('orang_tua')}
+                className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  currentRole === 'orang_tua'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                Orang Tua (Token)
+              </button>
+
+              <button
+                onClick={() => onRoleChange('admin')}
+                className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  currentRole === 'admin'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Admin Fakultas
+              </button>
+            </div>
           </div>
         </div>
       </div>
