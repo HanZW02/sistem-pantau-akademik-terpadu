@@ -1,9 +1,11 @@
 @import "tailwindcss";
+
 @layer base {
   body {
     @apply bg-slate-50 text-slate-900 antialiased font-sans;
   }
 }
+
 :root {
   --ink: #12303f;
   --ink-soft: #bcd0da;
@@ -333,4 +335,10 @@ body {
   * {
     transition: none !important;
   }
+}
+
+.login .help {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
 }
